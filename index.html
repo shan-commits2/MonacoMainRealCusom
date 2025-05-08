@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Monaco Made by shannie</title>
+  <title>shancommitsdieeeee</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
   <style>
     html, body {
@@ -108,132 +108,118 @@
   </div>
 
   <script>
-    let tabs = {};
-    let currentTab = null;
-    const iconUrl = "https://raw.githubusercontent.com/shan-commits2/Alien-Ware/main/moonsec.png";
+let tabs = JSON.parse(localStorage.getItem('tabs')) || { "Main Tab": "" };
+let currentTab = "Main Tab";
+const iconUrl = "https://raw.githubusercontent.com/shan-commits2/Alien-Ware/main/moonsec.png";
 
-    const editorContainer = document.getElementById('editor');
-    const tabContainer = document.querySelector('.tabs');
-    const modal = document.getElementById('modal');
-    const modalTitle = document.getElementById('modalTitle');
-    const modalButton = document.getElementById('modalButton');
-    const tabNameInput = document.getElementById('tabNameInput');
+function saveTabs() { localStorage.setItem('tabs', JSON.stringify(tabs)); }
 
-    let currentAction = 'create';
-    let targetTab = null;
+function openModal(action, tabName = '') {
+  currentAction = action;
+  targetTab = tabName;
+  tabNameInput.value = tabName.slice(0, 15);
 
-    function openModal(action, tabName = '') {
-      currentAction = action;
-      targetTab = tabName;
-      tabNameInput.value = tabName;
+  modalTitle.textContent = action === 'create' ? 'Create New Tab' : 'Rename Your Tab';
+  modalButton.textContent = action === 'create' ? 'Create Tab' : 'Rename Tab';
 
-      modalTitle.textContent = action === 'create' ? 'Create New Tab' : 'Rename Your Tab';
-      modalButton.textContent = action === 'create' ? 'Create Tab' : 'Rename Tab';
+  modal.style.display = 'flex';
+  editorContainer.classList.add('blurred');
+  tabContainer.classList.add('blurred');
+}
 
-      modal.style.display = 'flex';
-      editorContainer.classList.add('blurred');
-      tabContainer.classList.add('blurred');
+function closeModal() {
+  modal.style.display = 'none';
+  editorContainer.classList.remove('blurred');
+  tabContainer.classList.remove('blurred');
+}
+
+modalButton.onclick = () => {
+  const name = tabNameInput.value.trim().slice(0, 15);
+  if (!name) return;
+  if (currentAction === 'create') createTab(name);
+  else renameTab(targetTab, name);
+  closeModal();
+};
+
+function createTab(name) {
+  if (Object.keys(tabs).length >= 9 || tabs[name]) return;
+
+  tabs[name] = "";
+  saveTabs();
+  renderTabs();
+  switchTab(name);
+}
+
+function renderTabs() {
+  const tabContainer = document.querySelector('.tabs');
+  tabContainer.innerHTML = '';
+
+  Object.keys(tabs).forEach(name => {
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (currentTab === name ? ' active' : '');
+    tab.innerHTML = `<img src="${iconUrl}"><span>${name}</span>`;
+
+    if (name !== "Main Tab") {
+      const closeBtn = document.createElement('span');
+      closeBtn.textContent = ' ×';
+      closeBtn.className = 'close';
+      closeBtn.onclick = (e) => { e.stopPropagation(); delete tabs[name]; saveTabs(); renderTabs(); };
+      tab.appendChild(closeBtn);
     }
 
-    function closeModal() {
-      modal.style.display = 'none';
-      editorContainer.classList.remove('blurred');
-      tabContainer.classList.remove('blurred');
-    }
+    tab.onclick = () => switchTab(name);
+    tabContainer.appendChild(tab);
+  });
 
-    modalButton.onclick = () => {
-      const name = tabNameInput.value.trim();
-      if (!name) return;
-      if (currentAction === 'create') createTab(name);
-      else renameTab(targetTab, name);
-      closeModal();
-    };
+  const plus = document.createElement('div');
+  plus.className = 'tab';
+  plus.textContent = '+';
+  plus.onclick = () => openModal('create');
+  tabContainer.appendChild(plus);
+}
 
-    function createTab(name) {
-      if (Object.keys(tabs).length >= 9) return;
+function switchTab(name) {
+  currentTab = name;
+  if (editor) {
+    editor.setValue(tabs[name] || "");
+  }
+  saveTabs();
+  renderTabs();
+}
 
-      const tab = document.createElement('div');
-      tab.className = 'tab';
-      tab.innerHTML = `<img src="${iconUrl}"><span>${name}</span><span class="close">×</span>`;
-      tab.onclick = () => switchTab(name);
-      tab.ondblclick = () => openModal('rename', name);
-      tab.querySelector('.close').onclick = (e) => {
-        e.stopPropagation();
-        delete tabs[name];
-        tab.remove();
-        if (currentTab === name) {
-          const nextTab = Object.keys(tabs)[0];
-          if (nextTab) switchTab(nextTab);
-          else monaco.editor.getModels().forEach(m => m.dispose());
-        }
-      };
+function updateCurrentTabText() {
+  if (currentTab) {
+    tabs[currentTab] = editor.getValue();
+    saveTabs();
+  }
+}
 
-      tabContainer.insertBefore(tab, tabContainer.lastChild);
-      tabs[name] = '';
-      switchTab(name);
-    }
+window.setText = (tabName, text) => {
+  if (tabs[tabName]) {
+    tabs[tabName] = text;
+    if (currentTab === tabName) editor.setValue(text);
+    saveTabs();
+  }
+};
 
-    function switchTab(name) {
-      currentTab = name;
-      Array.from(tabContainer.children).forEach(t => t.classList.remove('active'));
-      const tab = Array.from(tabContainer.children).find(t => t.textContent.includes(name));
-      if (tab) tab.classList.add('active');
-      const model = monaco.editor.createModel(tabs[name], 'lua');
-      editor.setModel(model);
-    }
+window.getText = (tabName) => tabs[tabName] || '';
 
-    function renameTab(oldName, newName) {
-      if (tabs[newName]) return;
-      tabs[newName] = tabs[oldName];
-      delete tabs[oldName];
-      const tab = Array.from(tabContainer.children).find(t => t.textContent.includes(oldName));
-      if (tab) {
-        tab.querySelector('span').textContent = newName;
-        tab.onclick = () => switchTab(newName);
-        tab.ondblclick = () => openModal('rename', newName);
-      }
-      if (currentTab === oldName) currentTab = newName;
-    }
+require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
+require(['vs/editor/editor.main'], function () {
+  window.editor = monaco.editor.create(document.getElementById('editor'), {
+    value: tabs[currentTab] || '',
+    language: 'lua',
+    theme: 'vs-dark',
+    automaticLayout: true,
+    fontSize: 14
+  });
 
-    function updateCurrentTabText() {
-      if (currentTab) {
-        tabs[currentTab] = editor.getValue();
-      }
-    }
+  editor.onDidChangeModelContent(updateCurrentTabText);
 
-    window.setText = (tabName, text) => {
-      if (tabs[tabName]) {
-        tabs[tabName] = text;
-        if (currentTab === tabName) editor.setValue(text);
-      }
-    };
+  renderTabs();
+  switchTab(currentTab);
+});
 
-    window.getText = (tabName) => {
-      return tabs[tabName] || '';
-    };
-
-    require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
-    require(['vs/editor/editor.main'], function () {
-      window.editor = monaco.editor.create(editorContainer, {
-        value: '',
-        language: 'lua',
-        theme: 'vs-dark',
-        automaticLayout: true,
-        fontSize: 14,
-      });
-
-      editor.onDidChangeModelContent(updateCurrentTabText);
-      createTab('Main Tab');
-      createPlusTab();
-    });
-
-    function createPlusTab() {
-      const plus = document.createElement('div');
-      plus.className = 'tab';
-      plus.textContent = '+';
-      plus.onclick = () => openModal('create');
-      tabContainer.appendChild(plus);
-    }
   </script>
 </body>
 </html>
